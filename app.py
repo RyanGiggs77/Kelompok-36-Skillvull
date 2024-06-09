@@ -218,7 +218,7 @@ if authentication_status:
                 st.write('- Pertumbuhan Jamur: Buah yang busuk sering kali memiliki pertumbuhan jamur yang terlihat sebagai bercak putih, hijau, atau hitam.')
 
     # # Display logout button
-    # authenticator.logout('Logout', 'sidebar')
+    authenticator.logout('Logout', 'sidebar')
 
     # Add footer
     st.markdown(
