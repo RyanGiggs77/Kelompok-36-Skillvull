@@ -39,10 +39,13 @@ with open('config.yaml') as file:
 # Hashing passwords
 hashed_credentials = {}
 for username, info in config['credentials']['usernames'].items():
-    hashed_password = bcrypt.hashpw(info['password'].encode('utf-8'), bcrypt.gensalt())
+    # Ensure password is converted to bytes
+    password_bytes = info['password'].encode('utf-8')
+    # Hash the password
+    hashed_password = bcrypt.hashpw(password_bytes, bcrypt.gensalt())
+    # Convert hashed password back to string
     info['password'] = hashed_password.decode('utf-8')
     hashed_credentials[username] = info
-
 # Update the hashed passwords in the config
 config['credentials']['usernames'] = hashed_credentials
 
