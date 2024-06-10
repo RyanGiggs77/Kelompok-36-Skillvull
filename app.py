@@ -8,24 +8,21 @@ import yaml
 from yaml.loader import SafeLoader
 import streamlit_authenticator as stauth
 import bcrypt
-
+from streamlit_webrtc import webrtc_streamer, VideoTransformerBase, RTCConfiguration
 
 # Add title and favicon
-st.set_page_config(page_title="Quality Control Food Raw Materials", 
-                   page_icon="🍏"
-                   ,)
+st.set_page_config(page_title="Quality Control Food Raw Materials", page_icon="🍏")
 
-# Adding css style
+# Adding CSS style
 st.markdown(
     """
     <style>
     .stApp {
         background-image: url("https://miro.medium.com/v2/resize:fit:720/format:webp/0*Ciet3UBlRwGcz7Sx");
         background-size: cover;
-        background-attachment: fixed
+        background-attachment: fixed;
         background-color: #00325B;
         primaryColor: #FF8C02;
-        
     }
     </style>
     """,
@@ -113,45 +110,33 @@ if authentication_status:
 
     if option == 'Use Webcam':
         st.markdown('Jika probabilitas lebih dari 50% maka buah tersebut sudah tidak layak untuk dikonsumsi.')
-        
-        # Clear the image placeholder
-        image_placeholder.empty()
 
-        # Initialize webcam
-        cap = cv2.VideoCapture(0)
-        
-        stop_button = st.button('Stop Webcam')
+        class VideoTransformer(VideoTransformerBase):
+            def __init__(self):
+                self.model = tf.saved_model.load('fruit model')
+                
+            def transform(self, frame):
+                img = frame.to_ndarray(format="bgr24")
 
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                st.error('Failed to capture image from webcam')
-                break
-            
-            # Convert BGR to RGB
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            
-            # Preprocess image
-            image = tf.image.resize(frame_rgb, (256, 256))
-            image = preprocess_webcam_image(image)
-            
-            # Make prediction
-            prediction = predict_image(image)
-            
-            # Display frame
-            image_placeholder.image(frame_rgb, channels='RGB', use_column_width=True)
-            
-            # Display prediction
-            prediction_text = 'Fresh' if prediction < 0.5 else 'Rotten'
-            probability_text = f'Probability: {prediction * 100:.2f}%'
-            prediction_placeholder.write(f'Prediction: {prediction_text}')
-            prediction_placeholder.write(probability_text)
-            
-            # Exit the loop if Stop Webcam button is pressed
-            if stop_button:
-                break
-        
-        cap.release()
+                # Convert BGR to RGB
+                img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+                # Preprocess image
+                image = preprocess_webcam_image(img_rgb)
+                
+                # Make prediction
+                prediction = predict_image(image)
+
+                # Display prediction
+                prediction_text = 'Fresh' if prediction < 0.5 else 'Rotten'
+                probability_text = f'Probability: {prediction * 100:.2f}%'
+                st.write(f'Prediction: {prediction_text}')
+                st.write(probability_text)
+
+                return img
+
+        webrtc_streamer(key="example", video_transformer_factory=VideoTransformer, rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}))
+
     else:
         # Clear previous result from Use Webcam option
         image_placeholder.empty()
@@ -184,12 +169,10 @@ if authentication_status:
             ax1.axis('equal')
             st.pyplot(fig1)
 
-            
-            
             # Additional information and tips
             if prediction < 0.5:
                 st.info('Jika buah terlihat segar namun memiliki bau yang aneh, sebaiknya jangan dikonsumsi.')
-                
+
                 st.subheader('Informasi Tambahan:')
                 st.write('### Tips Menjaga Buah Tetap Segar')
                 st.write('- Simpan di Lemari Es: Suhu rendah memperlambat aktivitas mikroorganisme dan enzim, sehingga memperpanjang kesegaran buah.')
@@ -201,7 +184,7 @@ if authentication_status:
                 st.write('- Hindari Cidera Fisik: Tangani buah dengan hati-hati untuk menghindari memar atau luka yang dapat mempercepat pembusukan.')
             else:
                 st.info('Pastikan untuk membuang buah yang terlihat busuk atau berjamur.')
-                
+
                 # Additional information for rotten fruit
                 st.subheader('Informasi tentang Buah Busuk:')
                 st.write('### Penyebab Buah Busuk')
@@ -210,14 +193,14 @@ if authentication_status:
                 st.write('- Enzim Buah: Buah mengandung enzim yang memecah jaringan buah seiring waktu, terutama setelah buah dipetik.')
                 st.write('- Suhu Tinggi: Suhu tinggi mempercepat aktivitas mikroorganisme dan enzim, sehingga mempercepat pembusukan buah.')
                 st.write('- Kerusakan Fisik: Buah yang terluka atau memar lebih rentan terhadap serangan mikroorganisme dan pembusukan.')
-                
+
                 st.write('### Tanda-tanda Buah Busuk')
                 st.write('- Perubahan Warna: Buah yang busuk biasanya berubah warna, misalnya menjadi cokelat atau hitam.')
                 st.write('- Tekstur Lembek: Buah yang busuk akan terasa lembek dan berair.')
                 st.write('- Bau Tidak Sedap: Buah yang busuk seringkali memiliki bau yang tidak sedap atau asam.')
                 st.write('- Pertumbuhan Jamur: Buah yang busuk sering kali memiliki pertumbuhan jamur yang terlihat sebagai bercak putih, hijau, atau hitam.')
 
-    # # Display logout button
+    # Display logout button
     authenticator.logout('Logout', 'sidebar')
 
     # Add footer
@@ -242,11 +225,9 @@ if authentication_status:
         """, 
         unsafe_allow_html=True
     )
-        
-    
-    # Handle authentication status
+
+# Handle authentication status
 elif authentication_status is False:
     st.error('Username/password is incorrect')
 elif authentication_status is None:
     st.warning('Please enter your username and password')
-
