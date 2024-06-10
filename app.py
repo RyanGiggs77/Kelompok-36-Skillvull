@@ -155,7 +155,7 @@ if authentication_status:
                     probability_text_placeholder.text(probability_text)
                     # Rerun the loop without clearing the existing display
                     st.rerun(loop_key='prediction_loop')
-                else:
+                 else:
                     break
     
     else:
