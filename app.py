@@ -8,7 +8,8 @@ import yaml
 from yaml.loader import SafeLoader
 import streamlit_authenticator as stauth
 import bcrypt
-from streamlit_webrtc import webrtc_streamer, VideoTransformerBase, RTCConfiguration
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, WebRtcMode, RTCConfiguration
+import av
 
 # Add title and favicon
 st.set_page_config(page_title="Quality Control Food Raw Materials", page_icon="🍏")
@@ -111,11 +112,12 @@ if authentication_status:
     if option == 'Use Webcam':
         st.markdown('Jika probabilitas lebih dari 50% maka buah tersebut sudah tidak layak untuk dikonsumsi.')
 
-        class VideoTransformer(VideoTransformerBase):
+        class VideoProcessor(VideoProcessorBase):
             def __init__(self):
                 self.model = tf.saved_model.load('fruit model')
+                self.prediction = None
                 
-            def transform(self, frame):
+            def recv(self, frame):
                 img = frame.to_ndarray(format="bgr24")
 
                 # Convert BGR to RGB
@@ -125,18 +127,32 @@ if authentication_status:
                 image = preprocess_webcam_image(img_rgb)
                 
                 # Make prediction
-                prediction = predict_image(image)
+                self.prediction = predict_image(image)
 
-                # Display prediction
-                prediction_text = 'Fresh' if prediction < 0.5 else 'Rotten'
-                probability_text = f'Probability: {prediction * 100:.2f}%'
-                st.write(f'Prediction: {prediction_text}')
-                st.write(probability_text)
+                return av.VideoFrame.from_ndarray(img, format='bgr24')
+        
+        ctx = webrtc_streamer(
+            key="example", 
+            mode=WebRtcMode.SENDRECV, 
+            rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}), 
+            video_processor_factory=VideoProcessor
+        )
 
-                return img
+        # Use placeholders for updating prediction text
+        prediction_text_placeholder = st.empty()
+        probability_text_placeholder = st.empty()
 
-        webrtc_streamer(key="example", video_transformer_factory=VideoTransformer, rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}))
-
+        if ctx.video_processor:
+            while True:
+                if ctx.video_processor.prediction is not None:
+                    prediction = ctx.video_processor.prediction
+                    prediction_text = 'Fresh' if prediction < 0.5 else 'Rotten'
+                    probability_text = f'Probability: {prediction * 100:.2f}%'
+                    prediction_text_placeholder.write(f'Prediction: {prediction_text}')
+                    probability_text_placeholder.write(probability_text)
+                else:
+                    break
+    
     else:
         # Clear previous result from Use Webcam option
         image_placeholder.empty()
