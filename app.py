@@ -156,7 +156,7 @@ if authentication_status:
                     prediction_text_placeholder.text(f'Prediction: {prediction_text}')
                     probability_text_placeholder.text(probability_text)
                     # Rerun the loop without clearing the existing display
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     break
     
