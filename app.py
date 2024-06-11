@@ -118,18 +118,22 @@ if authentication_status:
                 self.prediction = None
                 
             def recv(self, frame):
-                img = frame.to_ndarray(format="bgr24")
+                try:
+                    img = frame.to_ndarray(format="bgr24")
 
-                # Convert BGR to RGB
-                img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    # Convert BGR to RGB
+                    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-                # Preprocess image
-                image = preprocess_webcam_image(img_rgb)
-                
-                # Make prediction
-                self.prediction = predict_image(image)
+                    # Preprocess image
+                    image = preprocess_webcam_image(img_rgb)
+                    
+                    # Make prediction
+                    self.prediction = predict_image(image)
 
-                return av.VideoFrame.from_ndarray(img, format='bgr24')
+                    return av.VideoFrame.from_ndarray(img, format='bgr24')
+                except Exception as e:
+                    print(f"Error processing frame: {e}")
+                    return frame
         
         ctx = webrtc_streamer(
             key="example", 
@@ -138,11 +142,11 @@ if authentication_status:
             video_processor_factory=VideoProcessor
         )
 
+        # Use placeholders for updating prediction text
+        prediction_text_placeholder = st.empty()
+        probability_text_placeholder = st.empty()
+
         if ctx.video_processor:
-            # Use placeholders for updating prediction text
-            prediction_text_placeholder = st.empty()
-            probability_text_placeholder = st.empty()
-        
             while True:
                 if ctx.video_processor.prediction is not None:
                     prediction = ctx.video_processor.prediction
