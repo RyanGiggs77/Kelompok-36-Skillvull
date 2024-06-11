@@ -138,10 +138,6 @@ if authentication_status:
             video_processor_factory=VideoProcessor
         )
 
-        # # Use placeholders for updating prediction text
-        # prediction_text_placeholder = st.empty()
-        # probability_text_placeholder = st.empty()
-
         if ctx.video_processor:
             # Use placeholders for updating prediction text
             prediction_text_placeholder = st.empty()
