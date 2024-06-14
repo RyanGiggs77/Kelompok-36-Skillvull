@@ -143,13 +143,18 @@ if authentication_status:
         probability_text_placeholder = st.empty()
 
         if ctx.video_processor:
+            last_prediction = st.session_state.get('last_prediction', None)
             while True:
                 if ctx.video_processor.prediction is not None:
                     prediction = ctx.video_processor.prediction
-                    prediction_text = 'Fresh' if prediction < 0.5 else 'Rotten'
-                    probability_text = f'Probability: {prediction * 100:.2f}%'
-                    prediction_text_placeholder.write(f'Prediction: {prediction_text}')
-                    probability_text_placeholder.write(probability_text)
+                    if prediction != last_prediction:
+                        st.session_state.last_prediction = prediction
+                        prediction_text = 'Fresh' if prediction < 0.5 else 'Rotten'
+                        probability_text = f'Probability: {prediction * 100:.2f}%'
+                        prediction_text_placeholder.write(f'Prediction: {prediction_text}')
+                        probability_text_placeholder.write(probability_text)
+                    else:
+                        continue
                 else:
                     break
     
