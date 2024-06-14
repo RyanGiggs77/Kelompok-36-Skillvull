@@ -110,7 +110,6 @@ if authentication_status:
         st.sidebar.warning('Jangan lupa untuk menghapus gambar yang diunggah sebelum menggunakan webcam!')
 
     if option == 'Use Webcam':
-        st.markdown('Jika probabilitas lebih dari 50% maka buah tersebut sudah tidak layak untuk dikonsumsi.')
         st.markdown('Jika probabilitas lebih dari 50% maka buah tersebut sudah tidak layak untuk dikonsumsi.(Web cam akan membutuhkan sedikit waktu sebelum bisa memprediksi)')
 
         class VideoProcessor(VideoProcessorBase):
