@@ -111,6 +111,7 @@ if authentication_status:
 
     if option == 'Use Webcam':
         st.markdown('Jika probabilitas lebih dari 50% maka buah tersebut sudah tidak layak untuk dikonsumsi.')
+        st.markdown('Jika probabilitas lebih dari 50% maka buah tersebut sudah tidak layak untuk dikonsumsi.(Web cam akan membutuhkan sedikit waktu sebelum bisa memprediksi)')
 
         class VideoProcessor(VideoProcessorBase):
             def __init__(self):
