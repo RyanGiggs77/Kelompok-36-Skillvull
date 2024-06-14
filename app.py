@@ -138,25 +138,18 @@ if authentication_status:
             video_processor_factory=VideoProcessor
         )
 
-        # # Use placeholders for updating prediction text
-        # prediction_text_placeholder = st.empty()
-        # probability_text_placeholder = st.empty()
+        # Use placeholders for updating prediction text
+        prediction_text_placeholder = st.empty()
+        probability_text_placeholder = st.empty()
 
         if ctx.video_processor:
-            # Use placeholders for updating prediction text
-            prediction_text_placeholder = st.empty()
-            probability_text_placeholder = st.empty()
-        
             while True:
                 if ctx.video_processor.prediction is not None:
                     prediction = ctx.video_processor.prediction
                     prediction_text = 'Fresh' if prediction < 0.5 else 'Rotten'
                     probability_text = f'Probability: {prediction * 100:.2f}%'
-                    # Update prediction text in place
-                    prediction_text_placeholder.text(f'Prediction: {prediction_text}')
-                    probability_text_placeholder.text(probability_text)
-                    # Rerun the loop without clearing the existing display
-                    st.rerun()
+                    prediction_text_placeholder.write(f'Prediction: {prediction_text}')
+                    probability_text_placeholder.write(probability_text)
                 else:
                     break
     
