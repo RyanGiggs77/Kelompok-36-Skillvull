@@ -118,13 +118,14 @@ if authentication_status:
         st.markdown('Jika probabilitas lebih dari 50% maka buah tersebut sudah tidak layak untuk dikonsumsi.')
 
         def find_camera():
-            for i in range(3):
-                cap = cv2.VideoCapture(i)
-                if cap.isOpened():
-                    ret, _ = cap.read()
-                    if ret:
-                        return cap
-                    cap.release()
+            for backend in [cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY]:
+                for i in range(3):
+                    cap = cv2.VideoCapture(i, backend)
+                    if cap.isOpened():
+                        ret, _ = cap.read()
+                        if ret:
+                            return cap
+                        cap.release()
             return None
 
         cap = find_camera()
