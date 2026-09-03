@@ -1,10 +1,8 @@
 streamlit==1.32.2
 streamlit-authenticator==0.3.2
-streamlit-webrtc==0.47.7
 tensorflow==2.16.1
 opencv-python-headless==4.8.0.74
 matplotlib==3.8.2
 PyYAML==6.0.1
 bcrypt==4.2.0
-av==12.1.0
 numpy==1.26.4
