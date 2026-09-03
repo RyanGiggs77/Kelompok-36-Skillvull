@@ -7,8 +7,6 @@ import yaml
 from yaml.loader import SafeLoader
 import streamlit_authenticator as stauth
 import numpy as np
-import time
-import threading
 
 
 @st.cache_resource
@@ -119,13 +117,22 @@ if authentication_status:
     if option == 'Use Webcam':
         st.markdown('Jika probabilitas lebih dari 50% maka buah tersebut sudah tidak layak untuk dikonsumsi.')
 
-        cap = cv2.VideoCapture(0)
-        frame_placeholder = st.empty()
-        result_placeholder = st.empty()
+        def find_camera():
+            for i in range(3):
+                cap = cv2.VideoCapture(i)
+                if cap.isOpened():
+                    ret, _ = cap.read()
+                    if ret:
+                        return cap
+                    cap.release()
+            return None
 
-        if not cap.isOpened():
-            st.error('Tidak bisa membuka webcam! Pastikan kamera tidak digunakan aplikasi lain.')
-        else:
+        cap = find_camera()
+
+        if cap is not None:
+            frame_placeholder = st.empty()
+            result_placeholder = st.empty()
+
             while cap.isOpened():
                 ret, frame = cap.read()
                 if not ret:
@@ -166,6 +173,45 @@ if authentication_status:
                 frame_placeholder.image(img_rgb, channels='RGB')
 
             cap.release()
+        else:
+            st.info('Webcam real-time tidak tersedia. Gunakan mode capture di bawah.')
+            camera = st.camera_input("Arahkan kamera ke buah, lalu klik Take Picture")
+
+            if camera is not None:
+                img_bytes = camera.getvalue()
+                nparr = np.frombuffer(img_bytes, np.uint8)
+                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+                if img is not None:
+                    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+                    try:
+                        image = tf.image.resize(img_rgb, (256, 256))
+                        image = image.numpy().astype('float32')
+                        image = preprocess_input(image)
+                        image = tf.expand_dims(image, axis=0)
+                        pred = float(model(image).numpy()[0][0])
+
+                        label = 'Segar' if pred < 0.5 else 'Busuk'
+                        conf = pred * 100 if pred >= 0.5 else (1 - pred) * 100
+                        color = (0, 200, 0) if pred < 0.5 else (0, 0, 200)
+
+                        h, w = img_rgb.shape[:2]
+                        cv2.rectangle(img_rgb, (0, 0), (w, h), color, 4)
+                        cv2.putText(img_rgb, f'{label}', (10, 40),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 1.2, color, 3)
+                        cv2.putText(img_rgb, f'{conf:.1f}%', (10, 80),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+
+                        bar_x, bar_y, bar_w, bar_h = 10, 100, 200, 20
+                        cv2.rectangle(img_rgb, (bar_x, bar_y), (bar_x + bar_w, bar_y + bar_h), (50, 50, 50), -1)
+                        fill_w = int(bar_w * (conf / 100))
+                        cv2.rectangle(img_rgb, (bar_x, bar_y), (bar_x + fill_w, bar_y + bar_h), color, -1)
+                        cv2.rectangle(img_rgb, (bar_x, bar_y), (bar_x + bar_w, bar_y + bar_h), (255, 255, 255), 1)
+                    except Exception:
+                        pass
+
+                    st.image(img_rgb, channels='RGB', use_column_width=True)
     
     else:
         # File uploader
