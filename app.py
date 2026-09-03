@@ -119,7 +119,7 @@ if authentication_status:
 
     if option == 'Use Webcam':
         st.markdown('Jika probabilitas lebih dari 50% maka buah tersebut sudah tidak layak untuk dikonsumsi.')
-        st.info('Klik tombol **START** di bawah, lalu izinkan akses kamera di browser jika diminta.')
+        st.info('Klik **START**, lalu izinkan kamera di browser. Jika loading terus, coba refresh halaman.')
 
         class VideoProcessor(VideoProcessorBase):
             def __init__(self):
@@ -164,6 +164,9 @@ if authentication_status:
                     fill_w = int(bar_w * (conf / 100))
                     cv2.rectangle(img, (bar_x, bar_y), (bar_x + fill_w, bar_y + bar_h), color, -1)
                     cv2.rectangle(img, (bar_x, bar_y), (bar_x + bar_w, bar_y + bar_h), (255, 255, 255), 1)
+                else:
+                    cv2.putText(img, 'Memuat...', (10, 40),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 0), 3)
 
                 return av.VideoFrame.from_ndarray(img, format='bgr24')
 
@@ -173,11 +176,13 @@ if authentication_status:
             rtc_configuration=RTCConfiguration({
                 "iceServers": [
                     {"urls": ["stun:stun.l.google.com:19302"]},
+                    {"urls": ["stun:stun1.l.google.com:19302"]},
+                    {"urls": ["stun:stun2.l.google.com:19302"]},
                 ]
             }),
             media_stream_constraints={"video": True, "audio": False},
             video_processor_factory=VideoProcessor,
-            async_processing=True,
+            async_processing=False,
         )
     
     else:
