@@ -1,15 +1,18 @@
 import streamlit as st
 import tensorflow as tf
-from tensorflow.keras.preprocessing import image as image_utils
 from tensorflow.keras.applications.vgg16 import preprocess_input
 import cv2
 import matplotlib.pyplot as plt
 import yaml
 from yaml.loader import SafeLoader
 import streamlit_authenticator as stauth
-import bcrypt
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, WebRtcMode, RTCConfiguration
 import av
+
+
+@st.cache_resource
+def load_model():
+    return tf.saved_model.load('fruit model')
 
 # Add title and favicon
 st.set_page_config(page_title="Quality Control Food Raw Materials", page_icon="🍏")
@@ -34,16 +37,6 @@ st.markdown(
 with open('config.yaml') as file:
     config = yaml.load(file, Loader=SafeLoader)
 
-# Hashing passwords
-hashed_credentials = {}
-for username, info in config['credentials']['usernames'].items():
-    hashed_password = bcrypt.hashpw(info['password'].encode('utf-8'), bcrypt.gensalt())
-    info['password'] = hashed_password.decode('utf-8')
-    hashed_credentials[username] = info
-
-# Update the hashed passwords in the config
-config['credentials']['usernames'] = hashed_credentials
-
 # Initialize the authenticator
 authenticator = stauth.Authenticate(
     config['credentials'],
@@ -53,28 +46,45 @@ authenticator = stauth.Authenticate(
     config['pre-authorized']
 )
 
-# Render the login module
-name, authentication_status, username = authenticator.login('main')
+# Render the login / register module
+if not st.session_state.get('authentication_status'):
+    tab_login, tab_register = st.tabs(['Login', 'Daftar Akun Baru'])
+    with tab_login:
+        name, authentication_status, username = authenticator.login('main')
+    with tab_register:
+        try:
+            email_of_registered_user, username_of_registered_user, name_of_registered_user = (
+                authenticator.register_user(pre_authorization=False, location='main')
+            )
+            if email_of_registered_user:
+                st.success(
+                    f'Registrasi berhasil untuk {name_of_registered_user} '
+                    f'({email_of_registered_user}). Silakan login.'
+                )
+                with open('config.yaml', 'w') as file:
+                    yaml.dump(config, file, default_flow_style=False)
+        except Exception as e:
+            st.error(e)
+else:
+    name, authentication_status, username = authenticator.login('main')
 
 if authentication_status:
     # Display logout button
     st.sidebar.title(f'Welcome, {name}!')
 
-    # Function to preprocess the image from webcam
-    def preprocess_webcam_image(image):
+    def preprocess_image(image):
         image = tf.image.resize(image, (256, 256))
         image = image.numpy().astype('float32')
         image = preprocess_input(image)
         image = tf.expand_dims(image, axis=0)
         return image
 
-    # Function to preprocess the uploaded image
-    def preprocess_uploaded_image(image_path):
-        image = image_utils.load_img(image_path, target_size=(256, 256))
-        image = image_utils.img_to_array(image)
-        image = preprocess_input(image)
-        image = tf.expand_dims(image, axis=0)
-        return image
+    def preprocess_webcam_image(image):
+        return preprocess_image(image)
+
+    def preprocess_uploaded_image(uploaded_file):
+        image = tf.image.decode_image(uploaded_file.getvalue(), channels=3, expand_animations=False)
+        return preprocess_image(image)
 
     # Function to make predictions
     def predict_image(image):
@@ -82,7 +92,7 @@ if authentication_status:
         return float(prediction.numpy()[0][0])
 
     # Load the SavedModel
-    model = tf.saved_model.load('fruit model')
+    model = load_model()
 
     # Page title and subtitle
     st.title('🍏🍓🍌 Quality Control Food Raw Materials 🍍🥝🍇')
@@ -101,10 +111,6 @@ if authentication_status:
     # Sidebar option to select source
     option = st.sidebar.radio('Select an option:', ('Upload Image', 'Use Webcam'))
 
-    # Display placeholders for webcam output and predictions
-    image_placeholder = st.empty()
-    prediction_placeholder = st.empty()
-
     # Reminder to clear uploaded image if switching to webcam
     if option == 'Upload Image':
         st.sidebar.warning('Jangan lupa untuk menghapus gambar yang diunggah sebelum menggunakan webcam!')
@@ -114,7 +120,6 @@ if authentication_status:
 
         class VideoProcessor(VideoProcessorBase):
             def __init__(self):
-                self.model = tf.saved_model.load('fruit model')
                 self.prediction = None
                 
             def recv(self, frame):
@@ -138,30 +143,15 @@ if authentication_status:
             video_processor_factory=VideoProcessor
         )
 
-        # Use placeholders for updating prediction text
-        prediction_text_placeholder = st.empty()
-        probability_text_placeholder = st.empty()
-
         if ctx.video_processor:
-            last_prediction = st.session_state.get('last_prediction', None)
-            while True:
-                if ctx.video_processor.prediction is not None:
-                    prediction = ctx.video_processor.prediction
-                    if prediction != last_prediction:
-                        st.session_state.last_prediction = prediction
-                        prediction_text = 'Fresh' if prediction < 0.5 else 'Rotten'
-                        probability_text = f'Probability: {prediction * 100:.2f}%'
-                        prediction_text_placeholder.write(f'Prediction: {prediction_text}')
-                        probability_text_placeholder.write(probability_text)
-                    else:
-                        continue
-                else:
-                    break
+            prediction = ctx.video_processor.prediction
+            if prediction is not None:
+                prediction_text = 'Fresh' if prediction < 0.5 else 'Rotten'
+                probability_text = f'Probability: {prediction * 100:.2f}%'
+                st.write(f'Prediction: {prediction_text}')
+                st.write(probability_text)
     
     else:
-        # Clear previous result from Use Webcam option
-        image_placeholder.empty()
-
         # File uploader
         uploaded_file = st.sidebar.file_uploader('Pilih Gambarnya...', type=['jpg', 'jpeg', 'png'])
         if uploaded_file is not None:
