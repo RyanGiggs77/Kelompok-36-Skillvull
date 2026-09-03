@@ -6,9 +6,8 @@ import matplotlib.pyplot as plt
 import yaml
 from yaml.loader import SafeLoader
 import streamlit_authenticator as stauth
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, WebRtcMode, RTCConfiguration
-import av
 import numpy as np
+import time
 import threading
 
 
@@ -119,71 +118,54 @@ if authentication_status:
 
     if option == 'Use Webcam':
         st.markdown('Jika probabilitas lebih dari 50% maka buah tersebut sudah tidak layak untuk dikonsumsi.')
-        st.info('Klik **START**, lalu izinkan kamera di browser. Jika loading terus, coba refresh halaman.')
 
-        class VideoProcessor(VideoProcessorBase):
-            def __init__(self):
-                self.lock = threading.Lock()
-                self.prediction = None
-                self.frame_count = 0
+        cap = cv2.VideoCapture(0)
+        frame_placeholder = st.empty()
+        result_placeholder = st.empty()
 
-            def recv(self, frame):
-                img = frame.to_ndarray(format="bgr24")
-                self.frame_count += 1
+        if not cap.isOpened():
+            st.error('Tidak bisa membuka webcam! Pastikan kamera tidak digunakan aplikasi lain.')
+        else:
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    break
 
-                if self.frame_count % 5 == 0:
-                    try:
-                        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                        image = tf.image.resize(img_rgb, (256, 256))
-                        image = image.numpy().astype('float32')
-                        image = preprocess_input(image)
-                        image = tf.expand_dims(image, axis=0)
-                        pred = float(model(image).numpy()[0][0])
-                        with self.lock:
-                            self.prediction = pred
-                    except Exception:
-                        pass
+                img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-                with self.lock:
-                    pred = self.prediction
+                try:
+                    image = tf.image.resize(img_rgb, (256, 256))
+                    image = image.numpy().astype('float32')
+                    image = preprocess_input(image)
+                    image = tf.expand_dims(image, axis=0)
+                    pred = float(model(image).numpy()[0][0])
 
-                if pred is not None:
                     label = 'Segar' if pred < 0.5 else 'Busuk'
                     conf = pred * 100 if pred >= 0.5 else (1 - pred) * 100
                     color = (0, 200, 0) if pred < 0.5 else (0, 0, 200)
 
-                    h, w = img.shape[:2]
-                    cv2.rectangle(img, (0, 0), (w, h), color, 4)
-                    cv2.putText(img, f'{label}', (10, 40),
+                    h, w = img_rgb.shape[:2]
+                    cv2.rectangle(img_rgb, (0, 0), (w, h), color, 4)
+                    cv2.putText(img_rgb, f'{label}', (10, 40),
                                 cv2.FONT_HERSHEY_SIMPLEX, 1.2, color, 3)
-                    cv2.putText(img, f'{conf:.1f}%', (10, 80),
+                    cv2.putText(img_rgb, f'{conf:.1f}%', (10, 80),
                                 cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
 
                     bar_x, bar_y, bar_w, bar_h = 10, 100, 200, 20
-                    cv2.rectangle(img, (bar_x, bar_y), (bar_x + bar_w, bar_y + bar_h), (50, 50, 50), -1)
+                    cv2.rectangle(img_rgb, (bar_x, bar_y), (bar_x + bar_w, bar_y + bar_h), (50, 50, 50), -1)
                     fill_w = int(bar_w * (conf / 100))
-                    cv2.rectangle(img, (bar_x, bar_y), (bar_x + fill_w, bar_y + bar_h), color, -1)
-                    cv2.rectangle(img, (bar_x, bar_y), (bar_x + bar_w, bar_y + bar_h), (255, 255, 255), 1)
-                else:
-                    cv2.putText(img, 'Memuat...', (10, 40),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 0), 3)
+                    cv2.rectangle(img_rgb, (bar_x, bar_y), (bar_x + fill_w, bar_y + bar_h), color, -1)
+                    cv2.rectangle(img_rgb, (bar_x, bar_y), (bar_x + bar_w, bar_y + bar_h), (255, 255, 255), 1)
 
-                return av.VideoFrame.from_ndarray(img, format='bgr24')
+                    result_placeholder.markdown(
+                        f"### Prediksi: **{label}** — Confidence: **{conf:.1f}%**"
+                    )
+                except Exception:
+                    pass
 
-        webrtc_streamer(
-            key="fruit-qc",
-            mode=WebRtcMode.SENDRECV,
-            rtc_configuration=RTCConfiguration({
-                "iceServers": [
-                    {"urls": ["stun:stun.l.google.com:19302"]},
-                    {"urls": ["stun:stun1.l.google.com:19302"]},
-                    {"urls": ["stun:stun2.l.google.com:19302"]},
-                ]
-            }),
-            media_stream_constraints={"video": True, "audio": False},
-            video_processor_factory=VideoProcessor,
-            async_processing=False,
-        )
+                frame_placeholder.image(img_rgb, channels='RGB')
+
+            cap.release()
     
     else:
         # File uploader
